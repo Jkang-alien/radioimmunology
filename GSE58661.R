@@ -3,6 +3,76 @@
 library(Biobase)
 library(GEOquery)
 
+GSEDATA <- getGEO ("GSE58661", GSEMatrix = T, AnnotGPL = FALSE)
+print(summary(exprs(GSEDATA[[1]])[, 1:2]))
+eset <- GSEDATA[[1]]
+
+###############################################################################
+########https://www.r-bloggers.com/creating-annotated-data-frames-from-geo-with-the-geoquery-package/
+###############################################################################
+
+getGEOdataObjects <- function(x, getGSEobject=FALSE){
+  # Make sure the GEOquery package is installed
+  require("GEOquery")
+  # Use the getGEO() function to download the GEO data for the id stored in x
+  GSEDATA <- getGEO(x, GSEMatrix=T, AnnotGPL=FALSE)
+  # Inspect the object by printing a summary of the expression values for the first 2 columns
+  print(summary(exprs(GSEDATA[[1]])[, 1:2]))
+  
+  # Get the eset object
+  eset <- GSEDATA[[1]]
+  # Save the objects generated for future use in the current working directory
+  save(GSEDATA, eset, file=paste(x, ".RData", sep=""))
+  
+  # check whether we want to return the list object we downloaded on GEO or
+  # just the eset object with the getGSEobject argument
+  if(getGSEobject) return(GSEDATA) else return(eset)
+}
+
+# Store the dataset ids in a vector GEO_DATASETS just in case you want to loop through several GEO ids
+GEO_DATASETS <- c("GSE58661")
+
+# Use the function we created to return the eset object
+eset <- getGEOdataObjects(GEO_DATASETS[1])
+# Inspect the eset object to get the annotation GPL id
+eset 
+
+# Get the annotation GPL id (see Annotation: GPL10558)
+gpl <- getGEO('GPL15048', destdir=".")
+Meta(gpl)$title
+
+# Inspect the table of the gpl annotation object
+colnames(Table(gpl))
+
+# Get the gene symbol and entrez ids to be used for annotations
+Table(gpl)[1:10, c(1, 6, 9, 12)]
+dim(Table(gpl))
+
+# Get the gene expression data for all the probes with a gene symbol
+geneProbes <- which(!is.na(Table(gpl)$GeneSymbol))
+probeids <- as.character(Table(gpl)$ID[geneProbes])
+
+probes <- intersect(probeids, rownames(exprs(eset)))
+length(probes)
+
+geneMatrix <- exprs(eset)[probes, ]
+
+inds <- which(Table(gpl)$ID %in% probes)
+# Check you get the same probes
+head(probes)
+head(as.character(Table(gpl)$ID[inds]))
+
+# Get gene symbol
+Genesymbol <- Table(gpl)[inds, 4]
+
+# Create the expression matrix with gene ids
+geneMatTable <- cbind(as.character(Genesymbol), geneMatrix)
+head(geneMatTable)
+
+# Save a copy of the expression matrix as a csv file
+write.csv(geneMatTable, paste(GEO_DATASETS[1], "_DataMatrix.csv", sep=""), row.names=T)
+
+
 ######## https://www.bioconductor.org/packages/3.3/bioc/vignettes/GEOquery/inst/doc/GEOquery.html#series
 gse<- getGEO('GSE58661')
 
