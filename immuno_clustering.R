@@ -12,8 +12,16 @@ colnames(ES) <- cell_type
 
 library(ConsensusClusterPlus)
 
-results = ConsensusClusterPlus(ES,maxK=6,reps=5000,pItem=0.8,pFeature=1,
+results_col = ConsensusClusterPlus(ES,maxK=6,reps=5000,pItem=0.8,pFeature=1,
                                title='consensus',
+                               clusterAlg="hc",
+                               innerLinkage = "ward.D2",
+                               finalLinkage = "ward.D2",
+                               distance="euclidean",
+                               plot="pdf")
+
+results_row = ConsensusClusterPlus(t(ES),maxK=10,reps=5000,pItem=0.8,pFeature=1,
+                               title='consensus_by_row',
                                clusterAlg="hc",
                                innerLinkage = "ward.D2",
                                finalLinkage = "ward.D2",
@@ -37,7 +45,8 @@ ah<- aheatmap(ES,
               #cexCol = ,
               #fontsize = 16,
               #labCol = rep('',dim(data_hc_e)[2]),
-              Colv = results[[3]]$consensusTree
+              Colv = results_col[[3]]$consensusTree,
+              Rowv = results_row[[4]]$consensusTree
               #reorderfun = function(d, w) reorder(d, 10)
 )
 
