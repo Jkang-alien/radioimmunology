@@ -1,4 +1,5 @@
 #GSE58661
+load('data.RData')
 
 library(Biobase)
 library(GEOquery)
@@ -66,12 +67,14 @@ head(as.character(Table(gpl)$ID[inds]))
 Genesymbol <- Table(gpl)[inds, 4]
 
 # Create the expression matrix with gene ids
-geneMatTable <- cbind(as.character(Genesymbol), geneMatrix)
-head(geneMatTable)
-
-# Save a copy of the expression matrix as a csv file
-write.csv(geneMatTable, paste(GEO_DATASETS[1], "_DataMatrix.csv", sep=""), row.names=T)
-
+library(data.table)
+geneMatTable <- data.table(Gene = Genesymbol, geneMatrix)[Genesymbol != '']
+# Save a copy of the expression matrix as a gct file http://www.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats
+write.table(geneMatTable, file = 'gse58661.gct', append = FALSE, 
+            quote = FALSE, sep = '\t',
+            row.names = FALSE,
+            col.names = TRUE 
+)
 
 ######## https://www.bioconductor.org/packages/3.3/bioc/vignettes/GEOquery/inst/doc/GEOquery.html#series
 gse<- getGEO('GSE58661')
