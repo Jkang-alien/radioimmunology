@@ -1,4 +1,6 @@
-immune <- read.delim('immune_GSE18865.txt', sep = '\t')
+setwd('/home/jun/radioimmunology/')
+
+immune <- read.delim('ssGSEA_GSE18865.txt', sep = '\t')
 
 
 cell_type <- as.character(immune$Description)
@@ -8,6 +10,30 @@ ES <- t(immune[,2:90])
 ES <- scale(ES, center = TRUE, scale = TRUE)
 #ES <- sweep(ES, 1, apply(ES, 1, median, na.rm = TRUE))
 colnames(ES) <- cell_type
+
+GEO_ID <- read.delim('GEO_ID.txt')
+rownames(ES) == GEO_ID$ID_chip
+rownames(ES) <- GEO_ID$ID_lung
+
+#################### Patient info ##############################
+clin <- read.delim('patient.txt')
+summary(clin)
+clin$Contrast..0.non..1.cont <- factor(clin$Contrast..0.non..1.cont,
+                                       levels = c(0, 1),
+                                       labels = c('pre', 'post'))
+
+rownames(ES)
+clin$PatientID <- sub('3-[0]*', '_', tolower (clin$PatientID))
+
+rownames(ES) == clin$PatientID
+
+clin$Histology_simple <- rep(NA, 89)
+clin$Histology_simple [grep('Adeno', clin$Histology)] <- 'Adenocarcinoma'
+clin$Histology_simple [grep('Solid', clin$Histology)] <- 'Adenocarcinoma'
+clin$Histology_simple [grep('Squamous', clin$Histology)] <- 'Squamous Cell Carcinoma'
+clin$Histology_simple [grep('Non-Small Cell', clin$Histology)] <- 'Non-Small Cell Carcinoma'
+clin$Histology_simple [grep('Large Cell', clin$Histology)] <- 'Large Cell Neuroendocrine Carcinoma'
+
 ## heatmap(ES)
 
 library(ConsensusClusterPlus)
@@ -30,13 +56,19 @@ results_row = ConsensusClusterPlus(t(ES),maxK=10,reps=5000,pItem=0.8,pFeature=1,
 
 library(NMF)
 library(Cairo)
+
+ann <- data.frame(case_class = factor(results_row[[4]]$consensusClass),
+                  Histologic_type = clin$Histology_simple
+                  )
+ann_col <- data.frame(immune_class = factor(results_col[[3]]$consensusClass))
+
 CairoPDF(file = 'immune_TCIA_Lung.pdf',
          width =7.5, height = 7.5, pointsize = 16)
 ah<- aheatmap(ES, 
               hclustfun=function(d) hclust(d, method="ward.D2"),
               #Colv = colv,
-              #annRow = ann,
-              #annCol = ann_col,
+              annRow = ann,
+              annCol = ann_col,
               #annColors = ann_colors_e,
               #cex = 2,
               #labRow = rep('',dim(data_hc_e)[1]),
@@ -51,3 +83,17 @@ ah<- aheatmap(ES,
 )
 
 dev.off()
+
+################## Radiomics ########################
+radio <- read.delim('lung_3_radio.txt')
+
+summary(radio)
+mat_radio <- data.matrix (radio[,4:164])
+
+cor_radio_immue <- cor(mat_radio[clin$Contrast..0.non..1.cont == 'post',],
+                       ES[clin$Contrast..0.non..1.cont == 'post',],
+                       use="complete.obs")
+
+aheatmap(cor_radio_immue)
+
+
