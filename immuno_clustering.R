@@ -96,4 +96,52 @@ cor_radio_immue <- cor(mat_radio[clin$Contrast..0.non..1.cont == 'post',],
 
 aheatmap(cor_radio_immue)
 
+############ ML ########################
 
+library(mlbench)
+library(caret)
+correlationMatrix <- cor(mat_radio,use="complete.obs")
+# summarize the correlation matrix
+heatmap(correlationMatrix)
+# find attributes that are highly corrected (ideally >0.75)
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.75)
+# print indexes of highly correlated attributes
+print(highlyCorrelated)
+
+dim(mat_radio[, -highlyCorrelated])
+
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+# train the model
+model <- train(diabetes~., data=PimaIndiansDiabetes, method="lvq", preProcess="scale", trControl=control)
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+
+library(rpart)
+
+data_rpart_post <- data.frame(class = factor(results_row[[4]]$consensusClass),
+                                        mat_radio[, -highlyCorrelated])[clin$Contrast..0.non..1.cont == 'post',]
+
+rpart_post <- rpart(class~., data = data_rpart_post,
+                    control = rpart.control(minsplit = 10))
+
+attributes(rpart_post)
+plot(rpart_post)
+text(rpart_post, use.n=T,
+     cex = 0.5)
+rpart_post$ordered
+
+library(party)
+ctree_post <- ctree(class~., data = data_rpart_post,
+                    controls = ctree_control(maxsurrogate = 4))
+
+table(predict(ctree_post), data_rpart_post$class)
+plot(ctree_post)
+
+library(randomForest)
+rf <- randomForest(class~., data = data_rpart_post, ntree=100, proximity=TRUE)
+table(predict(rf), data_rpart_post$class)
+                         
