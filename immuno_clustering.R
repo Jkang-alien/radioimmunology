@@ -90,12 +90,6 @@ radio <- read.delim('lung_3_radio.txt')
 summary(radio)
 mat_radio <- data.matrix (radio[,4:164])
 
-cor_radio_immue <- cor(mat_radio[clin$Contrast..0.non..1.cont == 'post',],
-                       ES[clin$Contrast..0.non..1.cont == 'post',],
-                       use="complete.obs")
-
-aheatmap(cor_radio_immue)
-
 ############ ML ########################
 
 library(mlbench)
@@ -144,4 +138,58 @@ plot(ctree_post)
 library(randomForest)
 rf <- randomForest(class~., data = data_rpart_post, ntree=100, proximity=TRUE)
 table(predict(rf), data_rpart_post$class)
-                         
+
+sink('histology_enhance.txt')
+table(clin$Contrast..0.non..1.cont, clin$Histology_simple)
+sink()
+  
+############################################################
+################# cor p-value ##############################
+###https://www.r-bloggers.com/more-on-exploring-correlations-in-r/
+
+cor.prob <- function (X, Y, vp = c()) {
+  for (i in 1:dim(X)[2]){
+    for (j in 1:dim(Y)[2]){
+  a <- cor.test(X[,i],Y[,j])
+  p <- a$p.value
+  vp <- append(vp, p)
+    }
+  }
+matrix(vp, nrow = dim(X)[2], byrow = TRUE,
+       dimnames = list(colnames(X), colnames(Y)))
+}
+
+## Use this to dump the cor.prob output to a 4 column matrix
+## with row/column indices, correlation, and p-value.
+## See StackOverflow question: http://goo.gl/fCUcQ
+flattenSquareMatrix <- function(m) {
+  if( (class(m) != "matrix") | (nrow(m) != ncol(m))) stop("Must be a square matrix.") 
+  if(!identical(rownames(m), colnames(m))) stop("Row and column names must be equal.")
+  ut <- upper.tri(m)
+  data.frame(i = rownames(m)[row(m)[ut]],
+             j = rownames(m)[col(m)[ut]],
+             cor=t(m)[ut],
+             p=m[ut])
+}
+
+index_adeno_post <- clin$Contrast..0.non..1.cont == 'post' & clin$Histology_simple == 'Adenocarcinoma'
+
+cor_radio_immue <- cor(mat_radio[index_adeno_post,],
+                       ES[index_adeno_post,],
+                       use="complete.obs")
+ind_sig <- which(abs(cor_radio_immue) > 0.5, arr.ind = TRUE)
+colnames(cor_radio_immue)[ind_sig[,2]]
+
+aheatmap(cor_radio_immue)
+
+index_adeno_post <- clin$Contrast..0.non..1.cont == 'post' & clin$Histology_simple == 'Adenocarcinoma'
+
+cor_radio_immue_sig <- cor.prob(mat_radio[index_adeno_post,],
+                       ES[index_adeno_post,])
+
+aheatmap(log(cor_radio_immue_sig))
+ind_sig <- which(log(cor_radio_immue_sig) < -6, arr.ind = TRUE)
+colnames(cor_radio_immue_sig)[ind_sig[,2]]
+
+plot(mat_radio[index_adeno_post,60], ES[index_adeno_post,3])
+aheatmap(cor_radio_immue)
